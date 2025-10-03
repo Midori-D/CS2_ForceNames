@@ -1,0 +1,57 @@
+# .NET build artifacts
+bin/
+obj/
+TestResults/
+out/
+publish/
+
+
+# Binaries
+*.dll
+*.exe
+*.pdb
+*.mdb
+*.cache
+
+
+# NuGet / Packages
+*.nupkg
+*.snupkg
+packages/
+.nuget/
+
+
+# Archives
+*.zip
+*.tar
+*.tar.gz
+
+
+# IDE / Editor
+.vs/
+.vscode/
+.idea/
+*.sln.iml
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+_ReSharper.Caches/
+
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# Logs & local env
+*.log
+logs/
+.env
+*.secrets.json
+
+
+# config
+ForceNames.json
