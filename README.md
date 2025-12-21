@@ -3,6 +3,8 @@
 Map a player’s **SteamID64 → nickname** and keep their in-game name **locked** to it.
 <br /> A lightweight periodic sweep (default **10s**) re-applies names so engine resets or other plugins can’t undo them.
 <br /> Supports **JSON mode** (local config) and **MySQL mode** (recommended for large datasets).
+<br /> 
+<br /> ![ForceNames](/forcenames.gif)
 
 ## ✨ Features
 
