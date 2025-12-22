@@ -66,6 +66,9 @@ csgo/
 ## 📝 Changelog
 
 ```
+## [1.1.1] - 2025-12-22
+- Hotfix (ChatColor)
+
 ## [1.1.0] - 2025-12-21
 - Added MySQL mode (auto-create DB/table)
 - Shortened commands to !fn_*
