@@ -138,15 +138,15 @@ public class ForceNamesPlugin : BasePlugin
 
         if (_cfg.UseMySql)
         {
-            if (!UpsertMySqlMapping(sid, nickname)) { caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} DB write failed."); return; }
+            if (!UpsertMySqlMapping(sid, nickname)) { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB write failed."); return; }
             _cfg.Mappings[sid] = nickname;
-            caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} DB(MySql) set {sid} ⇒ '{nickname}'");
+            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB(MySql) set {sid} ⇒ '{nickname}'");
         }
 
         else
         {
             _cfg.Mappings[sid] = nickname; SaveConfig();
-            caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} Config(.json) set {sid} ⇒ '{nickname}'");
+            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] Config(.json) set {sid} ⇒ '{nickname}'");
         }
 
         if (ulong.TryParse(sid, out var sid64))
@@ -167,14 +167,14 @@ public class ForceNamesPlugin : BasePlugin
 
         if (_cfg.UseMySql)
         {
-            if (!DeleteMySqlMapping(sid)) { caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} DB(MySql) delete failed."); return; }
+            if (!DeleteMySqlMapping(sid)) { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB(MySql) delete failed."); return; }
             _cfg.Mappings.Remove(sid);
-            caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} DB(MySql) unset {sid}");
+            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB(MySql) unset {sid}");
         }
         else
         {
-            if (_cfg.Mappings.Remove(sid)) { SaveConfig(); caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} Config(.json) unset {sid}"); }
-            else caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} No mapping for {sid} in Config(.json)");
+            if (_cfg.Mappings.Remove(sid)) { SaveConfig(); caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] Config(.json) unset {sid}"); }
+            else caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] No mapping for {sid} in Config(.json)");
         }
     }
 
@@ -192,8 +192,8 @@ public class ForceNamesPlugin : BasePlugin
     {
         if (caller != null && !AdminManager.PlayerHasPermissions(caller, "@css/root"))
         { caller?.PrintToChat($" {ChatColors.Red}You do not have permission."); return; }
-        if (_cfg.Mappings.Count == 0) { caller?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} (empty)"); return; }
-        foreach (var kv in _cfg.Mappings) caller?.PrintToChat($"{kv.Key} => {kv.Value}");
+        if (_cfg.Mappings.Count == 0) { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] empty"); return; }
+        foreach (var kv in _cfg.Mappings) caller?.PrintToChat($"{kv.Key} => {ChatColors.Purple}{kv.Value}");
     }
 
     // Reload Core (JSON, MySQL)
@@ -201,7 +201,7 @@ public class ForceNamesPlugin : BasePlugin
     {
         if (!_cfg.UseMySql)
         {
-            if (!File.Exists(DesiredPath)) { SaveConfig(); cmd.ReplyToCommand($" {ChatColors.Green}[ForceNames]{ChatColors.White} Created new config."); return; }
+            if (!File.Exists(DesiredPath)) { SaveConfig(); cmd.ReplyToCommand($"[{ChatColors.Green}ForceNames{ChatColors.White}] Created new config."); return; }
             try
             {
                 var json = File.ReadAllText(DesiredPath);
@@ -209,9 +209,9 @@ public class ForceNamesPlugin : BasePlugin
                 SaveConfig();
                 ApplyAllOnlinePlayers();
                 StartPeriodicApply();
-                cmd.CallingPlayer?.PrintToChat($" {ChatColors.Green}[ForceNames]{ChatColors.White} Reloaded JSON & applied.");
+                cmd.CallingPlayer?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] Reloaded JSON & applied.");
             }
-            catch (Exception ex) { cmd.ReplyToCommand($" {ChatColors.Green}[ForceNames]{ChatColors.White} Reload failed: {ex.Message}"); }
+            catch (Exception ex) { cmd.ReplyToCommand($"[{ChatColors.Green}ForceNames{ChatColors.White}] Reload failed: {ex.Message}"); }
             return;
         }
 
@@ -221,9 +221,9 @@ public class ForceNamesPlugin : BasePlugin
             _cfg.Mappings = map;
             ApplyAllOnlinePlayers();
             StartPeriodicApply();
-            cmd.ReplyToCommand($" {ChatColors.Green}[ForceNames]{ChatColors.White} Reloaded MySQL & applied. ({map.Count} rows)");
+            cmd.ReplyToCommand($"[{ChatColors.Green}ForceNames{ChatColors.White}] Reloaded MySQL & applied. ({map.Count} rows)");
         }
-        else cmd.ReplyToCommand($" {ChatColors.Green}[ForceNames]{ChatColors.White} MySQL reload failed. See console.");
+        else cmd.ReplyToCommand($"[{ChatColors.Green}ForceNames{ChatColors.White}] MySQL reload failed. See console.");
     }
 
     // Config
