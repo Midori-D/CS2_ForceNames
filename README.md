@@ -68,7 +68,7 @@ csgo/
 ## 📝 Changelog
 
 ```
-## [1.2.0]
+## [1.2.0] - 2026-01-24
 - Added !fn_players
 - Flexible target selector for !fn/!unfn (SteamID64/#idx/name)
 - Code optimizations
