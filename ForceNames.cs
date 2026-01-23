@@ -19,7 +19,7 @@ namespace ForceNames;
 public class ForceNamesPlugin : BasePlugin
 {
     public override string ModuleName => "ForceNames";
-    public override string ModuleVersion => "1.1.0";
+    public override string ModuleVersion => "1.2.0";
     public override string ModuleAuthor => "Midori";
 
     // Config
@@ -65,6 +65,7 @@ public class ForceNamesPlugin : BasePlugin
         AddCommand("css_unfn", "Remove forced name", CmdUnforceName);
         AddCommand("css_fn_reload", "Reload config (prefers subfolder)", CmdReload);
         AddCommand("css_fn_list", "List mappings", CmdList);
+        AddCommand("css_fn_players", "List online players", CmdFnPlayer);
     }
 
     public override void Unload(bool hotReload) => _unloading = true;
@@ -92,6 +93,98 @@ public class ForceNamesPlugin : BasePlugin
     {
         foreach (var p in Utilities.GetPlayers())
             if (p?.IsValid == true) TryApplyForcedName(p);
+    }
+
+    // Players Snapshot
+    private sealed record PRef(int Idx, string Sid, string Name);
+
+    private List<PRef> SnapshotPlayers()
+    {
+        var list = Utilities.GetPlayers()
+            .Where(p => p != null && p.IsValid && !p.IsBot)
+            .Select(p => new { Sid = p!.SteamID.ToString(), Name = p.PlayerName ?? "(noname)" })
+            .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase) // In alphabetical order
+            .ToList();
+
+        var ret = new List<PRef>(list.Count);
+        for (int i = 0; i < list.Count; i++)
+            ret.Add(new PRef(i + 1, list[i].Sid, list[i].Name));
+        return ret;
+    }
+
+    private void ReplyLine(CCSPlayerController? caller, CommandInfo cmd, string msg)
+    {
+        if (caller != null && caller.IsValid) caller.PrintToChat(" " + msg);
+        else cmd.ReplyToCommand(msg);
+    }
+
+    private bool TryResolveTargetSid(CCSPlayerController? caller, CommandInfo cmd, string token, out string sid, out string dispName)
+    {
+        sid = "";
+        dispName = "";
+
+        token = (token ?? "").Trim().Trim('"');
+        if (token.Length == 0) return false;
+
+        // 1) SteamID64
+        if (token.Length >= 16 && token.All(char.IsDigit))
+        {
+            sid = token;
+            dispName = token;
+            return true;
+        }
+
+        var ps = SnapshotPlayers();
+        if (ps.Count == 0)
+        {
+            { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] No players are connected."); return false; }
+        }
+
+        // 2) Number
+        var t = token.StartsWith("#", StringComparison.Ordinal) ? token[1..] : token;
+        if (int.TryParse(t, out var idx))
+        {
+            var hit = ps.FirstOrDefault(x => x.Idx == idx);
+            if (hit != null)
+            {
+                sid = hit.Sid;
+                dispName = hit.Name;
+                return true;
+            }
+            { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] That number is out of range: {idx} (1~{ps.Count})"); return false; }
+        }
+
+        // 3) Name
+        var exact = ps.Where(x => x.Name.Equals(token, StringComparison.OrdinalIgnoreCase)).ToList();
+        var hits = exact.Count > 0
+            ? exact
+            : ps.Where(x => x.Name.Contains(token, StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (hits.Count == 1)
+        {
+            sid = hits[0].Sid;
+            dispName = hits[0].Name;
+            return true;
+        }
+
+        if (hits.Count > 1)
+        {
+            ReplyLine(caller, cmd, $"[{ChatColors.Green}ForceNames{ChatColors.White}] '{token}' is ambiguous. Please specify by number (e.g., !fn 2 Midori).");
+            foreach (var h in hits.Take(8)) ReplyLine(caller, cmd, $"[{h.Idx}] {h.Name}");
+            if (hits.Count > 8) ReplyLine(caller, cmd, $"... +{hits.Count - 8} more");
+            return false;
+        }
+
+        { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] Could not find '{token}'. Use !fn_players to see the player list."); return false; }
+    }
+
+    // Clean Nickname
+    private static string CleanNickname(string s)
+    {
+        s = (s ?? string.Empty).Trim();
+        s = string.Concat(s.Where(c => !char.IsControl(c)));
+        if (s.Length > 31) s = s[..31];
+        return s;
     }
 
     [GameEventHandler]
@@ -130,26 +223,36 @@ public class ForceNamesPlugin : BasePlugin
         if (caller != null && !AdminManager.PlayerHasPermissions(caller, "@css/root"))
         { caller?.PrintToChat($" {ChatColors.Red}You do not have permission."); return; }
 
-        if (cmd.ArgCount < 3) { caller?.PrintToChat("Usage: !fn <steamid64> <nickname>"); return; }
+        if (cmd.ArgCount < 3) 
+        { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] {ChatColors.Yellow}Usage: !fn <steamid64|#idx|name> <nickname...>{ChatColors.White} (list: {ChatColors.Yellow}!fn_players{ChatColors.White})"); return; }
 
-        var sid = cmd.GetArg(1);
-        var parts = new List<string>(); for (int i=2;i<cmd.ArgCount;i++) parts.Add(cmd.GetArg(i));
-        var nickname = CleanNickname(string.Join(' ', parts));
+        var token = cmd.GetArg(1);
+        if (!TryResolveTargetSid(caller, cmd, token, out var sid, out var who))
+            return;
+        
+        var parts = new List<string>();
+        for (int i = 2; i < cmd.ArgCount; i++) parts.Add(cmd.GetArg(i));
+        var rawNickname = string.Join(' ', parts);
+        var nickname = CleanNickname(rawNickname);
 
+        bool ok;
         if (_cfg.UseMySql)
         {
-            if (!UpsertMySqlMapping(sid, nickname)) { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB write failed."); return; }
-            _cfg.Mappings[sid] = nickname;
-            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB(MySql) set {sid} ⇒ '{nickname}'");
+            ok = UpsertMySqlMapping(sid, nickname);
+            if (ok) _cfg.Mappings[sid] = nickname;
+        }
+        else 
+        { 
+            _cfg.Mappings[sid] = nickname; 
+            SaveConfig(); 
+            ok = true; 
         }
 
-        else
-        {
-            _cfg.Mappings[sid] = nickname; SaveConfig();
-            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] Config(.json) set {sid} ⇒ '{nickname}'");
-        }
+        ReplyLine(caller, cmd, ok
+            ? $"[{ChatColors.Green}ForceNames{ChatColors.White}] {ChatColors.Green}SUCCESS!{ChatColors.White}: {who} ({sid}) => '{nickname}'"
+            : $"[{ChatColors.Green}ForceNames{ChatColors.White}] {ChatColors.Red}FAIL{ChatColors.White}: DB write failed");
 
-        if (ulong.TryParse(sid, out var sid64))
+        if (ok && ulong.TryParse(sid, out var sid64))
         {
             var target = Utilities.GetPlayerFromSteamId(sid64);
             if (target?.IsValid == true) TryApplyForcedName(target);
@@ -162,20 +265,29 @@ public class ForceNamesPlugin : BasePlugin
         if (caller != null && !AdminManager.PlayerHasPermissions(caller, "@css/root"))
         { caller?.PrintToChat($" {ChatColors.Red}You do not have permission."); return; }
 
-        if (cmd.ArgCount < 2) { caller?.PrintToChat("Usage: !unfn <steamid64>"); return; }
-        var sid = cmd.GetArg(1);
+        if (cmd.ArgCount < 2) { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] {ChatColors.Yellow}Usage: !unfn <steamid64|#idx|name>{ChatColors.White} (list: {ChatColors.Yellow}!fn_players{ChatColors.White})"); return; }
+        
+        var token = cmd.GetArg(1);
+        if (!TryResolveTargetSid(caller, cmd, token, out var sid, out var who))
+            return;
+
+        bool ok;
 
         if (_cfg.UseMySql)
         {
-            if (!DeleteMySqlMapping(sid)) { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB(MySql) delete failed."); return; }
-            _cfg.Mappings.Remove(sid);
-            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] DB(MySql) unset {sid}");
+            ok = DeleteMySqlMapping(sid);
+            if (ok) _cfg.Mappings.Remove(sid);
         }
         else
         {
-            if (_cfg.Mappings.Remove(sid)) { SaveConfig(); caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] Config(.json) unset {sid}"); }
-            else caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] No mapping for {sid} in Config(.json)");
+            ok = _cfg.Mappings.Remove(sid);
+            if (ok) SaveConfig();
         }
+
+        if (ok)
+            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] {ChatColors.Red}Unset: {ChatColors.Purple}{who}{ChatColors.White} ({sid})");
+        else
+            caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] No mapping for: {ChatColors.Purple}{who}{ChatColors.White} ({sid})");
     }
 
     [ConsoleCommand("css_fn_reload")]
@@ -193,7 +305,22 @@ public class ForceNamesPlugin : BasePlugin
         if (caller != null && !AdminManager.PlayerHasPermissions(caller, "@css/root"))
         { caller?.PrintToChat($" {ChatColors.Red}You do not have permission."); return; }
         if (_cfg.Mappings.Count == 0) { caller?.PrintToChat($"[{ChatColors.Green}ForceNames{ChatColors.White}] empty"); return; }
-        foreach (var kv in _cfg.Mappings) caller?.PrintToChat($"{kv.Key} => {ChatColors.Purple}{kv.Value}");
+        foreach (var kv in _cfg.Mappings) 
+            caller?.PrintToChat($"{kv.Key} => {ChatColors.Purple}{kv.Value}{ChatColors.White}");
+    }
+
+    [ConsoleCommand("css_fn_players")]
+    private void CmdFnPlayer(CCSPlayerController? caller, CommandInfo cmd)
+    {
+        if (caller != null && !AdminManager.PlayerHasPermissions(caller, "@css/root"))
+        { caller?.PrintToChat($" {ChatColors.Red}You do not have permission."); return; }
+
+        var ps = SnapshotPlayers();
+        if (ps.Count == 0) { ReplyLine(caller, cmd, "[ForceNames] No players are connected."); return; }
+
+        ReplyLine(caller, cmd, $"[{ChatColors.Green}ForceNames{ChatColors.White}] Online players:");
+        foreach (var p in ps)
+            ReplyLine(caller, cmd, $"[{p.Idx}] {ChatColors.Purple}{p.Name} - {p.Sid}");
     }
 
     // Reload Core (JSON, MySQL)
@@ -323,7 +450,7 @@ public class ForceNamesPlugin : BasePlugin
 
             while (r.Read())
             {
-                var sid  = r["sid"]?.ToString();
+                var sid = r["sid"]?.ToString();
                 var nick = r["nick"]?.ToString() ?? "";
                 if (string.IsNullOrWhiteSpace(sid) || string.IsNullOrWhiteSpace(nick)) continue;
                 map[sid] = nick;
@@ -348,7 +475,8 @@ public class ForceNamesPlugin : BasePlugin
             using var cmd = new MySqlCommand(sql, conn);
             cmd.Parameters.AddWithValue("@sid", sid);
             cmd.Parameters.AddWithValue("@nick", nickname);
-            return cmd.ExecuteNonQuery() > 0;
+            cmd.ExecuteNonQuery();
+            return true;
         }
         catch (Exception ex) { Console.WriteLine($"[ForceNames] DB upsert error: {ex.Message}"); return false; }
     }
@@ -367,16 +495,9 @@ public class ForceNamesPlugin : BasePlugin
         catch (Exception ex) { Console.WriteLine($"[ForceNames] DB delete error: {ex.Message}"); return false; }
     }
 
-    private static string CleanNickname(string s)
-    {
-        s = (s ?? string.Empty).Trim();
-        s = string.Concat(s.Where(c => !char.IsControl(c)));
-        if (s.Length > 31) s = s[..31];
-        return s;
-    }
 }
 
-public class ForceNamesConfig
+public class ForceNamesConfig : BasePluginConfig
 {
     public SortedDictionary<string, string> Mappings { get; set; } = new(StringComparer.Ordinal);
     public float ApplyIntervalSec { get; set; } = 10.0f;
