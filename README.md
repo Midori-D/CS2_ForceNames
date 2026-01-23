@@ -31,6 +31,7 @@ csgo/
                 └─ ForceNames/
                   └─ Forcenames.json      # config
 ```
+> If the config doesn’t load, check the generated config path after first run.
 
 ## ⚙️ Config (forcenames.json)
 
@@ -53,19 +54,25 @@ csgo/
 ## 🧰 Commands
 
 ```
-!fn <steamid64> <nickname...>       # set / update mapping (JSON or MySQL)
-!fn_unset <steamid64>               # remove mapping (JSON or MySQL)
-!fn_reload                          # reload config + refresh mappings
-!fn_list                            # print current mappings (cached)
+!fn <steamid64|#idx|name> <nickname>       # set / update mapping (JSON or MySQL)
+!unfn <steamid64|#idx|name>                # remove mapping (JSON or MySQL)
+!fn_reload                                 # reload config + refresh mappings
+!fn_list                                   # print current mappings (cached)
+!fn_players                                # list online players with indexes
 ```
 
 ## 🧪 Build
 
-* Target: **.NET 8** / CounterStrikeSharp **v1.0.352+** / MySQL **v2.5.0**
+* Target: **.NET 8** / CounterStrikeSharp **v1.0.358+** / MySQL **v2.5.0**
 
 ## 📝 Changelog
 
 ```
+## [1.2.0]
+- Added !fn_players
+- Flexible target selector for !fn/!unfn (SteamID64/#idx/name)
+- Code optimizations
+
 ## [1.1.1] - 2025-12-22
 - Hotfix (ChatColor)
 
