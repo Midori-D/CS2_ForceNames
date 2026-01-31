@@ -1,4 +1,4 @@
-# 🎀 CS2 ForceNames (SteamID → Nickname)
+# 🎀 CS2 ForceNames [SteamID → Nickname]
 
 Map a player’s **SteamID64 → nickname** and keep their in-game name **locked** to it.
 <br /> A lightweight periodic sweep (default **10s**) re-applies names so engine resets or other plugins can’t undo them.
@@ -47,8 +47,8 @@ csgo/
   "databaseName": "DB_NAME"
 }
 ```
-* **applyIntervalSec**: Periodic sweep interval in seconds (10–30s recommended).
-* **useMySql**: When *true*, the plugin loads mappings from MySQL and ignores *mappings* in JSON.
+* **applyIntervalSec**: Periodic sweep interval in seconds.
+* **useMySql**: When `true`, the plugin loads mappings from MySQL and ignores *mappings* in JSON.
 * **databaseName**: Database name to use (plugin will create it if missing).
 
 ## 🧰 Commands
