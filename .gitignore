@@ -53,5 +53,5 @@ logs/
 *.secrets.json
 
 
-# config
-ForceNames.json
+# build
+build/
