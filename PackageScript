@@ -48,8 +48,8 @@ with open(os.path.join(builder.buildPath, 'pdblog.txt'), 'wt') as fp:
   for line in pdb_list:
     fp.write(line.path + '\n')
 
-cfg_folder = builder.AddFolder(os.path.join('cfg', MMSPlugin.plugin_name))
+cfg_folder = builder.AddFolder(os.path.join('cfg', 'forcenames'))
 builder.AddCopy(
-    os.path.join(builder.sourcePath, 'cfg', MMSPlugin.plugin_name, 'forcenames.cfg'),
+    os.path.join(builder.sourcePath, 'cfg', 'forcenames', 'forcenames.cfg'),
     cfg_folder
 )
