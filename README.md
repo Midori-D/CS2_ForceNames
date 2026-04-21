@@ -74,6 +74,9 @@ csgo/
 ## 📝 Changelog
 
 ```
+## [2.0.1] - 2026-04-22
+- Updated for the latest CS2 build [metamod-source ec7ff82] [ambuild 567eabd]
+
 ## [2.0.0] - 2026-04-02
 - Rebuilt as a MetaMod:Source plugin for CS2
 - Added fn_reloadcfg command
